@@ -1,0 +1,53 @@
+[package]
+name = "rustali-ai"
+description = "AI for the Rustali web framework: an embedding Backend trait with local Candle inference"
+version = "0.1.0-alpha.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/zfrtemel/rustali-ai"
+
+# Standalone package — its own one-crate workspace, deliberately outside the main
+# `rustali` workspace so its heavy optional `candle` dependency never slows that repo's CI.
+[workspace]
+
+[features]
+default = []
+# Local inference via Hugging Face Candle. Opt-in: pulls a large dependency tree
+# (candle, tokenizers, hf-hub + transitive matrix kernels), so it is off by default.
+candle = [
+    "dep:candle-core",
+    "dep:candle-nn",
+    "dep:candle-transformers",
+    "dep:tokenizers",
+    "dep:hf-hub",
+    "dep:serde_json",
+]
+
+[dependencies]
+rustali-core = { git = "https://github.com/zfrtemel/rustali", package = "rustali-core" }
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"
+tokio = { version = "1", features = ["rt"] }
+
+# --- local inference (optional, feature `candle`) ---
+candle-core = { version = "0.11", optional = true }
+candle-nn = { version = "0.11", optional = true }
+candle-transformers = { version = "0.11", optional = true }
+tokenizers = { version = "0.23", default-features = false, features = ["onig"], optional = true }
+hf-hub = { version = "1", default-features = false, features = ["blocking", "rustls-tls"], optional = true }
+serde_json = { version = "1", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
