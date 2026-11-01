@@ -3,9 +3,13 @@
 AI for the [Rustali](https://github.com/zfrtemel/rustali) web framework — so a Rust web app
 can do AI **in process**, no Python service alongside it.
 
-This first version does **embeddings**: it turns text into vectors you can compare, which is
-the foundation of semantic search and retrieval (RAG). A single `Backend` trait keeps the API
-stable; remote providers (OpenAI, Anthropic) can slot in behind it later.
+Two capabilities behind one handle:
+
+- **Embeddings** — turn text into vectors you can compare (semantic search, RAG).
+- **Chat** — text generation (prompt in, reply out).
+
+They are independent, and both sit behind provider-agnostic traits, so remote providers
+(OpenAI, Anthropic) can slot in behind them later without changing your call sites.
 
 ## Backends
 
@@ -54,6 +58,25 @@ Embed many texts at once (one model pass instead of one per text):
 let texts = vec!["first".to_owned(), "second".to_owned()];
 let vectors = ai.embed_batch(&texts).await?; // Vec<Vec<f32>>, in order
 ```
+
+### Chat (text generation)
+
+```rust
+use rustali_ai::ChatMessage;
+
+// one-shot
+let reply = ai.prompt("Write a haiku about Rust").await?;
+
+// a full conversation
+let reply = ai.chat(&[
+    ChatMessage::system("You are a terse assistant."),
+    ChatMessage::user("Summarize the borrow checker in one line."),
+]).await?;
+```
+
+With the default `mock` backend, `prompt`/`chat` return a deterministic stub (handy for
+tests). Real chat backends — a local model or a remote provider — slot in behind the same
+`Chat` trait.
 
 ### "Find the most similar"
 

@@ -58,7 +58,13 @@ impl Provider for AiProvider {
         Box::pin(async move {
             let config: AiConfig = registry.config().section_or_default(AiConfig::SECTION)?;
             let backend = build(&config)?;
-            registry.insert(Arc::new(Ai::new(backend)));
+            let mut ai = Ai::new(backend);
+            // The mock backend also provides a deterministic chat; real chat backends
+            // (local LLM, remote providers) slot in here later.
+            if config.backend != "candle" {
+                ai = ai.with_chat(Arc::new(crate::chat::MockChat));
+            }
+            registry.insert(Arc::new(ai));
             Ok(())
         })
     }

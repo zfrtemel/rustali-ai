@@ -2,27 +2,43 @@
 
 use std::sync::Arc;
 
-use rustali_core::Result;
+use rustali_core::{Error, Result};
 
-use crate::backend::Backend;
+use crate::{
+    backend::Backend,
+    chat::{Chat, ChatMessage},
+};
 
 /// Shared AI handle, stored as a service and handed to handlers via `ctx.ai()`.
 pub type SharedAi = Arc<Ai>;
 
-/// The handle application code uses to produce embeddings.
+/// The handle application code uses for AI.
 ///
-/// Wraps a [`Backend`] (local Candle, a test mock, or a future remote provider) behind a
-/// stable API, so swapping the backend never changes call sites.
+/// Wraps an embedding [`Backend`] and, optionally, a [`Chat`] backend (local, a test mock, or
+/// a future remote provider) behind a stable API, so swapping backends never changes call
+/// sites. The two capabilities are independent: a handle may provide embeddings, chat, or
+/// both.
 #[derive(Clone)]
 pub struct Ai {
     backend: Arc<dyn Backend>,
+    chat: Option<Arc<dyn Chat>>,
 }
 
 impl Ai {
-    /// Build a handle over `backend`.
+    /// Build a handle over an embedding `backend`, with no chat backend.
     #[must_use]
     pub fn new(backend: Arc<dyn Backend>) -> Self {
-        Self { backend }
+        Self {
+            backend,
+            chat: None,
+        }
+    }
+
+    /// Add a [`Chat`] backend, enabling [`chat`](Self::chat) / [`prompt`](Self::prompt).
+    #[must_use]
+    pub fn with_chat(mut self, chat: Arc<dyn Chat>) -> Self {
+        self.chat = Some(chat);
+        self
     }
 
     /// Embed a single string into a vector.
@@ -50,12 +66,45 @@ impl Ai {
     pub fn dimensions(&self) -> usize {
         self.backend.dimensions()
     }
+
+    /// Whether a chat backend is configured.
+    #[must_use]
+    pub fn has_chat(&self) -> bool {
+        self.chat.is_some()
+    }
+
+    /// Generate a reply to a full conversation.
+    ///
+    /// Build the `messages` with [`ChatMessage::system`] / [`ChatMessage::user`] /
+    /// [`ChatMessage::assistant`]. For a one-shot question, [`prompt`](Self::prompt) is
+    /// shorter.
+    ///
+    /// # Errors
+    /// Returns an error if no chat backend is configured, or the backend fails.
+    pub async fn chat(&self, messages: &[ChatMessage]) -> Result<String> {
+        let chat = self.chat.as_ref().ok_or_else(|| {
+            Error::internal(std::io::Error::other(
+                "no chat backend configured on this Ai handle",
+            ))
+        })?;
+        chat.generate(messages).await
+    }
+
+    /// Generate a reply to a single user message — the one-shot shortcut over
+    /// [`chat`](Self::chat).
+    ///
+    /// # Errors
+    /// Returns an error if no chat backend is configured, or the backend fails.
+    pub async fn prompt(&self, text: &str) -> Result<String> {
+        self.chat(&[ChatMessage::user(text)]).await
+    }
 }
 
 impl std::fmt::Debug for Ai {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Ai")
             .field("dimensions", &self.backend.dimensions())
+            .field("has_chat", &self.chat.is_some())
             .finish()
     }
 }

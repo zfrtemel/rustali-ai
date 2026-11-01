@@ -1,10 +1,14 @@
 //! AI for the [Rustali](https://github.com/zfrtemel/rustali) web framework.
 //!
-//! A single [`Backend`] trait turns text into embeddings; add [`AiProvider`] to your app and
-//! reach it from a handler with `ctx.ai()`. This lets a Rust web app do AI **in process** —
-//! no Python service alongside it.
+//! Two capabilities behind one handle: [`Backend`] turns text into **embeddings**, and
+//! [`Chat`] does **text generation**. Add [`AiProvider`] to your app and reach both from a
+//! handler with `ctx.ai()`. This lets a Rust web app do AI **in process** — no Python service
+//! alongside it.
 //!
-//! This first version ships embeddings with two backends:
+//! Chat and embeddings are independent — a handle may provide either or both. The traits are
+//! provider-agnostic, so remote providers (`OpenAI`, Anthropic) slot in behind them later.
+//!
+//! Embeddings ship with two backends:
 //!
 //! - **`mock`** (default) — a deterministic, dependency-free [`MockBackend`] for tests and
 //!   local development: no model, no network.
@@ -28,6 +32,7 @@
 //! ```
 
 mod backend;
+mod chat;
 mod client;
 mod provider;
 
@@ -35,6 +40,7 @@ mod provider;
 mod candle;
 
 pub use backend::{Backend, EmbedFuture, MockBackend};
+pub use chat::{Chat, ChatFuture, ChatMessage, MockChat, Role};
 pub use client::{Ai, SharedAi, cosine_similarity};
 pub use provider::{AiConfig, AiContextExt, AiProvider};
 
