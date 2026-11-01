@@ -78,19 +78,32 @@ With the default `mock` backend, `prompt`/`chat` return a deterministic stub (ha
 tests). Real chat backends — a local model or a remote provider — slot in behind the same
 `Chat` trait.
 
-### "Find the most similar"
+### Retrieval (RAG)
 
-The common use: embed a query, embed your candidates, rank by cosine similarity.
+`VectorStore` combines embeddings and similarity into the two calls a retrieval step needs:
+add your texts, then search by meaning.
 
 ```rust
-let query = ai.embed(user_question).await?;
-let mut ranked: Vec<_> = documents
-    .iter()
-    .zip(ai.embed_batch(&doc_texts).await?)
-    .map(|(doc, vec)| (doc, cosine_similarity(&query, &vec)))
-    .collect();
-ranked.sort_by(|a, b| b.1.total_cmp(&a.1)); // best first
+use rustali_ai::VectorStore;
+
+let mut store = VectorStore::new();
+store.add(&ai, "Rust has no garbage collector.").await?;
+store.add(&ai, "The borrow checker enforces ownership at compile time.").await?;
+store.add_with(&ai, "Cargo builds and tests your crate.", Some("docs#cargo")).await?;
+
+// retrieve the most relevant entries for a question
+let hits = store.search(&ai, "how does Rust manage memory?", 3).await?;
+for hit in &hits {
+    println!("{:.2}  {}", hit.score, hit.text); // best first; hit.payload carries metadata
+}
 ```
+
+That `hits` list is what you feed into a chat prompt as context — embeddings retrieve, chat
+generates. In memory and linear-scan: great up to thousands of entries; move to a dedicated
+vector database beyond that.
+
+If you just need a one-off comparison, `cosine_similarity(&a, &b)` on two vectors is always
+there.
 
 ## Configuration
 

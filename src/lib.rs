@@ -35,6 +35,7 @@ mod backend;
 mod chat;
 mod client;
 mod provider;
+mod vector_store;
 
 #[cfg(feature = "candle")]
 mod candle;
@@ -43,6 +44,7 @@ pub use backend::{Backend, EmbedFuture, MockBackend};
 pub use chat::{Chat, ChatFuture, ChatMessage, MockChat, Role};
 pub use client::{Ai, SharedAi, cosine_similarity};
 pub use provider::{AiConfig, AiContextExt, AiProvider};
+pub use vector_store::{SearchResult, VectorStore};
 
 #[cfg(feature = "candle")]
 pub use candle::CandleBackend;
